@@ -2,7 +2,8 @@ import java.util.InputMismatchException;
 import java.util.Scanner;
 
 public class Avance01 {
-    
+
+
 
     private static final Scanner scanner = new Scanner(System.in);
 
