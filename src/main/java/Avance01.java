@@ -1,35 +1,139 @@
-import java.util.ArrayList;
-import java.util.InputMismatchException;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class Avance01 {
 
-
     private static final Scanner scanner = new Scanner(System.in);
-    private static final List<String> usuarios = new ArrayList<>();
+    private static final Map<Integer, List<Integer>> logiasPorCapacidad = new HashMap<>();
+    private static final Map<String, String> reservas = new HashMap<>();  // Almacena "numeroLogia:capacidad"
     private static String matriculaActual = null;
+    private static List<String> usuarios = new ArrayList<>();
 
+    private static final int CAPACIDAD_7 = 7;
+    private static final int CAPACIDAD_5 = 5;
+    private static final int CAPACIDAD_3 = 3;
 
-    public static void main(String[] args) {
-        iniciarPrograma();
-        scanner.close();
+    static {
+        logiasPorCapacidad.put(CAPACIDAD_7, new ArrayList<>());
+        logiasPorCapacidad.put(CAPACIDAD_5, new ArrayList<>());
+        logiasPorCapacidad.put(CAPACIDAD_3, new ArrayList<>());
     }
 
-    public static void mostrarMenuInicial() {
-        System.out.println("\nMenú Inicial\n");
-        System.out.println("1.- Iniciar Sesión");
-        System.out.println("2.- Registrarse");
-        System.out.println("3.- Salir");
+    public static void mostrarDisponibilidadLogias(int capacidad) {
+        List<Integer> logias = logiasPorCapacidad.get(capacidad);
+        System.out.print("Logias de " + capacidad + " personas disponibles: ");
+        logias.stream()
+                .filter(logia -> !isLogiaReservada(logia, capacidad))
+                .forEach(logia -> System.out.print("Logia " + logia + " "));
+        System.out.println();
     }
 
-    public static void iniciarPrograma() {
-        int opcion;
+    private static boolean isLogiaReservada(int logia, int capacidad) {
+        return reservas.values().stream().anyMatch(reserva -> {
+            String[] partes = reserva.split(":");
+            return Integer.parseInt(partes[0]) == logia && Integer.parseInt(partes[1]) == capacidad;
+        });
+    }
+
+    public static void reservarLogia() {
+        if (reservas.containsKey(matriculaActual)) {
+            System.out.println("Ya tienes una logia reservada.");
+            return;
+        }
+
+        int capacidadSeleccionada = seleccionarCapacidadLogia();
+        if (capacidadSeleccionada == -1) return;
+
+        mostrarDisponibilidadLogias(capacidadSeleccionada);
+
+        int numeroLogia = seleccionarNumeroDeLogia(capacidadSeleccionada);
+        if (numeroLogia == -1) return;
+
+        if (solicitarIntegrantes(numeroLogia, capacidadSeleccionada)) {
+            completarReserva(numeroLogia, capacidadSeleccionada);
+        } else {
+            System.out.println("La reserva fue cancelada.");
+        }
+    }
+
+    public static void cancelarReserva() {
+        if (!reservas.containsKey(matriculaActual)) {
+            System.out.println("No tienes reservas para cancelar.");
+        } else {
+            int numeroLogia = Integer.parseInt(reservas.remove(matriculaActual).split(":")[0]);
+            System.out.println("Reserva de la logia " + numeroLogia + " cancelada con éxito.");
+        }
+    }
+
+    public static int seleccionarCapacidadLogia() {
+        System.out.println("\nSeleccione el tamaño de la logia a reservar:");
+        System.out.println("1.- Logia para 7 personas");
+        System.out.println("2.- Logia para 5 personas");
+        System.out.println("3.- Logia para 3 personas");
+        System.out.println("4.- Cancelar");
+
+        int opcion = solicitarOpcion("Ingrese una opción: ", 1, 4);
+        return switch (opcion) {
+            case 1 -> CAPACIDAD_7;
+            case 2 -> CAPACIDAD_5;
+            case 3 -> CAPACIDAD_3;
+            case 4 -> {
+                System.out.println("Cancelando la reserva y volviendo al menú anterior...");
+                yield -1;
+            }
+            default -> -1;
+        };
+    }
+
+    public static int seleccionarNumeroDeLogia(int capacidad) {
+        List<Integer> logias = logiasPorCapacidad.get(capacidad);
+        int numeroLogia;
         do {
-            mostrarMenuInicial();
-            opcion = solicitarOpcion("Ingrese su opción: ", 1, 3);
-            procesarOpcionInicial(opcion);
-        } while (opcion != 3);
+            numeroLogia = solicitarNumeroLogia();
+            if (!logias.contains(numeroLogia) || isLogiaReservada(numeroLogia, capacidad)) {
+                System.out.println("La logia seleccionada no está disponible. Intente de nuevo.");
+                numeroLogia = -1; // Reset to prompt again
+            }
+        } while (numeroLogia == -1);
+        return numeroLogia;
+    }
+
+    public static boolean solicitarIntegrantes(int numeroLogia, int capacidad) {
+        List<String> integrantes = new ArrayList<>();
+        for (int i = 1; i < capacidad; i++) {
+            String matricula;
+            while (true) {
+                System.out.print("Matrícula del compañero " + i + " (ingrese 0 para cancelar): ");
+                matricula = limpiarMatricula(scanner.nextLine());
+                if (matricula.equals("0")) {
+                    System.out.println("Cancelando la reserva de la logia " + numeroLogia + ".");
+                    return false;
+                } else if (!validarMatriculaCompanero(matricula, integrantes)) {
+                    continue;
+                }
+                integrantes.add(matricula);
+                break;
+            }
+        }
+        return true;
+    }
+
+    public static void completarReserva(int numeroLogia, int capacidad) {
+        reservas.put(matriculaActual, numeroLogia + ":" + capacidad);
+        System.out.println("Logia " + numeroLogia + " reservada con éxito.");
+    }
+
+    public static int solicitarNumeroLogia() {
+        while (true) {
+            try {
+                System.out.print("Ingrese el número de logia: ");
+                int numero = scanner.nextInt();
+                scanner.nextLine();
+                return numero;
+            } catch (InputMismatchException e) {
+                System.out.println("Por favor, ingrese un número entero válido.");
+                scanner.nextLine();
+            }
+        }
     }
 
     public static int solicitarOpcion(String mensaje, int min, int max) {
@@ -37,7 +141,7 @@ public class Avance01 {
             try {
                 System.out.print(mensaje);
                 int numero = scanner.nextInt();
-                scanner.nextLine(); // buena práctica
+                scanner.nextLine();
                 if (numero >= min && numero <= max) {
                     return numero;
                 } else {
@@ -50,130 +154,27 @@ public class Avance01 {
         }
     }
 
-    public static void procesarOpcionInicial(int opcion) {
-        switch (opcion) {
-            case 1:
-                if (iniciarSesion()) {
-                    menuPrincipal();
-                }
-                break;
-            case 2:
-                if (registrarUsuario()) {
-                    System.out.println("Usuario registrado exitosamente, inicie sesión.");
-                }
-                break;
-            case 3:
-                System.out.println("Saliendo del programa...");
-                break;
-            default:
-                System.out.println("Por favor, seleccione una opción correcta."); // buena práctica
+    public static boolean validarMatriculaCompanero(String matricula, List<String> integrantes) {
+        if (matricula.equals(matriculaActual)) {
+            System.out.println("No puedes ingresar tu propia matrícula.");
+            return false;
+        } else if (!usuarios.contains(matricula)) {
+            System.out.println("La matrícula no está registrada.");
+            return false;
+        } else if (integrantes.contains(matricula)) {
+            System.out.println("La matrícula ya fue ingresada.");
+            return false;
         }
-    }
-
-    public static boolean iniciarSesion() {
-        System.out.println("\nIniciar Sesión");
-        while (true) {
-            System.out.print("Ingrese su matrícula (o ingrese 0 para volver al menú anterior): ");
-            matriculaActual = limpiarMatricula(scanner.nextLine());
-
-            if (matriculaActual.equals("0")) {
-                return false;
-            }
-
-            if (usuarios.contains(matriculaActual)) {
-                System.out.println("¡Bienvenido!");
-                return true;
-            } else {
-                System.out.println("Usuario no encontrado. Por favor, intente nuevamente.");
-            }
-        }
-    }
-
-    public static boolean registrarUsuario() {
-        System.out.println("\nRegistro de Usuario");
-        String matricula = obtenerMatricula();
-        if (matricula == null) {
-            return false; // El usuario eligió volver al menú
-        }
-
-        usuarios.add(matricula);
-        matriculaActual = matricula;
-        System.out.println("Usuario registrado exitosamente.");
         return true;
-    }
-
-    private static String obtenerMatricula() {
-        String matricula;
-
-        while (true) {
-            System.out.print("Ingrese su matrícula (o ingrese 0 para volver al menú anterior): ");
-            matricula = limpiarMatricula(scanner.nextLine());
-
-            if (matricula.equals("0")) {
-                System.out.println("Volviendo al menú principal...");
-                return null; // Indica que el usuario quiere volver
-            } else if (usuarios.contains(matricula)) {
-                System.out.println("El usuario ya está registrado. Por favor, inicie sesión.");
-                return null; // Indica que el registro falló
-            } else if (!esMatriculaValida(matricula)) {
-                System.out.println("Matrícula inválida. Intente nuevamente.");
-            } else {
-                return matricula; // Matrícula válida
-            }
-        }
     }
 
     public static String limpiarMatricula(String matricula) {
         return matricula.replaceAll("[^\\dk]", "");
     }
 
-    public static boolean esMatriculaValida(String matricula) {
-        return matricula.matches("\\d{8}[\\dk]\\d{2}");
-    }
-
-    public static void menuPrincipal() {
-        int opcion;
-        do {
-            mostrarMenuPrincipal();
-            opcion = solicitarOpcion("Ingrese una opción:", 1, 4);
-            procesarOpcionPrincipal(opcion);
-        } while (opcion != 4);
-    }
-    public static void mostrarMenuPrincipal() {
-        System.out.println("\nMenú Principal\n");
-        System.out.println("1.- Reservar Logia");
-        System.out.println("2.- Consultar Disponibilidad de una Logia");
-        System.out.println("3.- Cancelar Reserva de una Logia");
-        System.out.println("4.- Salir");
-    }
-    public static void procesarOpcionPrincipal(int opcion) {
-        switch (opcion) {
-            case 1:
-                reservarLogia();
-                break;
-            case 2:
-                consultarDisponibilidad();
-                break;
-            case 3:
-                cancelarReserva();
-                break;
-            case 4:
-                System.out.println("Saliendo del programa...");
-                break;
-            default:
-                System.out.println("opción inválida."); // buena práctica según chaGPT , si se saca funcionará de igual manera , ya que nunca se ejecutará.
-        }
-    }
-    public static void reservarLogia() {
-        System.out.println("Aquí va la opción (reservarLogia)");
-        // Implementar lógica de reserva aquí
-    }
     public static void consultarDisponibilidad() {
-        System.out.println("Aquí va la opción (consultarDisponibilidad)");
-        // Implementar lógica de consulta aquí
-    }
-    public static void cancelarReserva() {
-        System.out.println("Aquí va la opción (cancelarReserva)");
-        // Implementar lógica de cancelación aquí
+        mostrarDisponibilidadLogias(CAPACIDAD_7);
+        mostrarDisponibilidadLogias(CAPACIDAD_5);
+        mostrarDisponibilidadLogias(CAPACIDAD_3);
     }
 }
